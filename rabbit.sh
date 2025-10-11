@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 start_or_run () {
     docker inspect peril_rabbitmq > /dev/null 2>&1
