@@ -7,6 +7,8 @@ import (
 	"syscall"
 	"log"
     amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
+	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
 )
 
 func err_hand(err error) {
@@ -29,6 +31,21 @@ func main() {
 			err_hand(fmt.Errorf("Error while closing server connection: %v", err))
 		}
 	}()
+
+	channel, err := connection.Channel()
+	if err != nil {
+		err_hand(err)
+	}
+
+	err = pubsub.PublishJSON(
+		channel, 
+		routing.ExchangePerilDirect, 
+		routing.PauseKey, 
+		routing.PlayingState{IsPaused: true},
+	)
+	if err != nil {
+		err_hand(err)
+	}
 
 	fmt.Println("Peril server connection succesful")
 
