@@ -33,7 +33,18 @@ func main() {
 		}
 	}()
 
-	channel, err := connection.Channel()
+	username, err := gamelogic.ClientWelcome()
+	if err != nil {
+		err_hand(err)
+	}
+
+	channel, _, err := pubsub.DeclareAndBind(
+		connection, 
+		routing.ExchangePerilDirect,
+		routing.PauseKey + "." + username, 
+		routing.PauseKey, 
+		routing.Transient,
+	)
 	if err != nil {
 		err_hand(err)
 	}
@@ -49,6 +60,7 @@ func main() {
 	}
 
 	fmt.Println("Peril server connection succesful")
+
 
 	sigs := make(chan os.Signal, 1)
 

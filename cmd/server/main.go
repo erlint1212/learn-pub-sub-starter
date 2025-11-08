@@ -49,6 +49,7 @@ func main() {
 
 	fmt.Println("Peril server connection succesful")
 
+
 	sigs := make(chan os.Signal, 1)
 
 	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
