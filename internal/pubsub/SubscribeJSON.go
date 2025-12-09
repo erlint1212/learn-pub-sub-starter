@@ -1,0 +1,46 @@
+package pubsub
+
+import (
+	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
+	"encoding/json"
+)
+
+func SubscribeJSON[T any](
+    conn *amqp.Connection,
+    exchange,
+    queueName,
+    key string,
+    queueType routing.SimpleQueueType, // an enum to represent "durable" or "transient"
+    handler func(T),
+) error {
+	channel, queue, err := DeclareAndBind(
+		conn, 
+		exchange,
+		queueName, 
+		key, 
+		queueType,
+	)
+	if err != nil {
+		return err
+	}
+
+	new_ch, err := channel.Consume(queue.Name, "", false, false, false, false, nil)
+	if err != nil {
+		return err
+	}
+	
+	for message := range new_ch {
+		var unmarshalled_body T
+		err = json.Unmarshal(message.Body, &unmarshalled_body)
+		if err != nil {
+			return err
+		}
+		handler(unmarshalled_body)
+		message.Ack(false)
+	}
+
+	return nil
+}
+
+

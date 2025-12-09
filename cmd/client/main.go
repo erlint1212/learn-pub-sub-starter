@@ -2,9 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 	"log"
     amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
@@ -16,8 +13,15 @@ func err_hand(err error) {
 	log.Fatal(err)
 }
 
+func handlerPause(gs *gamelogic.GameState) func(ps routing.PlayingState) {
+	return func(ps routing.PlayingState) {
+		defer fmt.Print("> ")
+		gs.HandlePause(ps)
+	}
+}
+
 func main() {
-	fmt.Println("Starting Peril server...")
+	log.Println("Starting Peril server...")
 
 	connection_string := "amqp://guest:guest@localhost:5672/"
 
@@ -59,15 +63,53 @@ func main() {
 		err_hand(err)
 	}
 
-	fmt.Println("Peril server connection succesful")
+	gamestate := gamelogic.NewGameState(username)
+
+	log.Println("Peril server connection succesful")
+
+	pubsub.SubscribeJSON(
+		connection,
+		routing.ExchangePerilDirect,
+		"pause." + username,
+		routing.PauseKey,
+		routing.Transient,
+		handlerPause(gamestate),
+	)
+
+	outerLoop:
+		for {
+			input := gamelogic.GetInput()
+			if len(input) == 0 {
+				continue
+			}
+			switch input[0] {
+			case "spawn":
+				err := gamestate.CommandSpawn(input)
+				if err != nil {
+					err_hand(err)
+				}
+			case "move":
+				_, err := gamestate.CommandMove(input)
+				if err != nil {
+					err_hand(err)
+				}
+				log.Printf("Moved unit \"%v\" to location \"%v\"", input[2], input[1])
+			case "status":
+				gamestate.CommandStatus()
+			case "help":
+				gamelogic.PrintClientHelp()
+			case "spam":
+				log.Println("Spamming not allowed yet!")
+			case "quit":
+				log.Println("Shutting down")
+				break outerLoop
+			default:
+				log.Printf("Command \"%v\" not recognized", input[0])
+
+			}
+		}
 
 
-	sigs := make(chan os.Signal, 1)
-
-	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
-
-	<-sigs
-
-	fmt.Println("Peril is shutting down and close the server connection")
+	log.Println("Peril is shutting down and close the server connection")
 }
 

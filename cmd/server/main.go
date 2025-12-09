@@ -30,7 +30,13 @@ func main() {
 		}
 	}()
 
-	channel, err := connection.Channel()
+	channel, _, err := pubsub.DeclareAndBind(
+		connection, 
+		routing.ExchangePerilTopic,
+		"game_logs", 
+		"game_logs.*", 
+		routing.Durable,
+	)
 	if err != nil {
 		err_hand(err)
 	}
@@ -72,7 +78,7 @@ func main() {
 				log.Println("Shutting down")
 				break outerLoop
 			default:
-				log.Printf("Command \"%v\" not recognized", input)
+				log.Printf("Command \"%v\" not recognized", input[0])
 
 			}
 		}
