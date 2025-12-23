@@ -30,7 +30,9 @@ func DeclareAndBind(
 		return nil, amqp.Queue{}, fmt.Errorf("queueType not recognized: %v", queueType)
 	}
 
-	queue, err := channel.QueueDeclare(queueName, durable, transient, transient, false, nil)
+	args := amqp.Table{"x-dead-letter-exchange": "peril_dlx"}
+
+	queue, err := channel.QueueDeclare(queueName, durable, transient, transient, false, args)
 	if err != nil {
 		return nil, amqp.Queue{}, err
 	}

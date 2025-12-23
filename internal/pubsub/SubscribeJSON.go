@@ -5,6 +5,7 @@ import (
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
 	"encoding/json"
 	"fmt"
+	"log"
 )
 
 
@@ -14,7 +15,7 @@ func SubscribeJSON[T any](
 	queueName,
 	key string,
 	queueType routing.SimpleQueueType,
-	handler func(T),
+	handler func(T) routing.AckType,
 ) error {
 	ch, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
 	if err != nil {
@@ -48,8 +49,20 @@ func SubscribeJSON[T any](
 				fmt.Printf("could not unmarshal message: %v\n", err)
 				continue
 			}
-			handler(target)
-			msg.Ack(false)
+			acktype := handler(target)
+			switch acktype {
+			case routing.Ack:
+				msg.Ack(false)
+				log.Println("Acknowledge: Processed successfully.")
+			case routing.NackRequeue:
+				msg.Nack(false, true)
+				log.Println("Nack and requeue: Not processed successfully, but should be requeued on the same queue to be processed again (retry).")
+			case routing.NackDiscard:
+				msg.Nack(false, false)
+				log.Println("Nack and discard: Not processed successfully, and should be discarded (to a dead-letter queue if configured or just deleted entirely).")
+			default:
+				log.Println("Could not recognize Ack Type")
+			}
 		}
 	}()
 	return nil
