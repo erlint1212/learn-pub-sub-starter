@@ -2,26 +2,54 @@ package pubsub
 
 import (
 	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
+	"encoding/gob"
+	"bytes"
+	//"context"
 	"encoding/json"
+	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
 	"fmt"
 	"log"
 )
 
+func UnmarshalGob[T any](data []byte) (T, error) {
+	buffer := bytes.NewBuffer(data)
+	decoder := gob.NewDecoder(buffer)
+	var gl T
+	err := decoder.Decode(&gl)
+	if err != nil {
+		return gl, err
+	}
 
-func SubscribeJSON[T any](
+	return gl, nil
+}
+
+func UnmarshalJSON[T any](data []byte) (T, error) {
+	var target T
+	err := json.Unmarshal(data, &target)
+	if err != nil {
+		return target, err
+	}
+	return target, nil
+}
+
+func Subscribe[T any](
 	conn *amqp.Connection,
 	exchange,
 	queueName,
 	key string,
 	queueType routing.SimpleQueueType,
 	handler func(T) routing.AckType,
+	unmarshaller func([]byte) (T, error),
 ) error {
 	ch, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
 	if err != nil {
 		return fmt.Errorf("could not declare and bind queue: %v", err)
 	}
 
+	err = ch.Qos(10, 0, false)
+	if err != nil {
+		return fmt.Errorf("could not set qos (message count): %v", err)
+	}
 	msgs, err := ch.Consume(
 		queue.Name, // queue
 		"",         // consumer
@@ -33,12 +61,6 @@ func SubscribeJSON[T any](
 	)
 	if err != nil {
 		return fmt.Errorf("could not consume messages: %v", err)
-	}
-
-	unmarshaller := func(data []byte) (T, error) {
-		var target T
-		err := json.Unmarshal(data, &target)
-		return target, err
 	}
 
 	go func() {
@@ -67,5 +89,3 @@ func SubscribeJSON[T any](
 	}()
 	return nil
 }
-
-

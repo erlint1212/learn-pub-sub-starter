@@ -13,6 +13,19 @@ func err_hand(err error) {
 	log.Fatal(err)
 }
 
+func handlerWriteLog() func(gl routing.GameLog) routing.AckType {
+	return func(gl routing.GameLog) routing.AckType {
+		defer fmt.Print("> ")
+
+		err := gamelogic.WriteLog(gl)
+		if err != nil {
+			log.Printf("ERROR: Couldn't write to log: %v\n", err)
+			return routing.NackDiscard
+		}
+		return routing.Ack
+	}
+}
+
 func main() {
 	fmt.Println("Starting Peril server...")
 
@@ -30,12 +43,26 @@ func main() {
 		}
 	}()
 
+
 	channel, _, err := pubsub.DeclareAndBind(
 		connection, 
 		routing.ExchangePerilTopic,
 		"game_logs", 
 		"game_logs.*", 
 		routing.Durable,
+	)
+	if err != nil {
+		err_hand(err)
+	}
+
+	err = pubsub.Subscribe(
+		connection,
+		routing.ExchangePerilTopic,
+		"game_logs",
+		"game_logs.*",
+		routing.Durable,
+		handlerWriteLog(),
+		pubsub.UnmarshalGob,
 	)
 	if err != nil {
 		err_hand(err)

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Check if the number of instances was provided
 if [ -z "$1" ]; then
